@@ -230,6 +230,13 @@ External secret providers decouple secret management from etcd and offer advance
 
 ![alt text](../Images/Secrets.png)
 
+## Note
+
+> Also the way kubernetes handles secrets. Such as:
+> -> A secret is only sent to a node if a pod on that node requires it.
+> -> Kubelet stores the secret into a tmpfs so that the secret is not written to disk storage.
+> -> Once the Pod that depends on the secret is deleted, kubelet will delete its local copy of the secret data as well.
+
 ## Conclusion
 
 Managing Kubernetes Secrets effectively is crucial for maintaining the security of your applications. By following the best practices outlined above, including using Secrets to handle sensitive data and applying strict RBAC policies, you can mitigate potential security risks associated with managing sensitive configuration data.
