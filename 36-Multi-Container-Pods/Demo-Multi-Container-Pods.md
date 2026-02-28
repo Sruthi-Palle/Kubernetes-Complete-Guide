@@ -220,6 +220,67 @@ Review the details of the application pod to determine where logs are stored. Th
 kubectl describe pod app -n elastic-stack
 ```
 
+```yaml theme={null}
+controlplane ~ ➜  kubectl describe pod app -n elastic-stack
+Name:             app
+Namespace:        elastic-stack
+Priority:         0
+Service Account:  default
+Node:             controlplane/10.244.170.128
+Start Time:       Sat, 28 Feb 2026 09:46:08 +0000
+Labels:           name=app
+Annotations:      <none>
+Status:           Running
+IP:               172.17.0.4
+IPs:
+  IP:  172.17.0.4
+Containers:
+  app:
+    Container ID:   containerd://559fc032dfcc621f34ad5ebe1fedc5d21651b513e3565a90a3b90e21a136a0d6
+    Image:          kodekloud/event-simulator
+    Image ID:       docker.io/kodekloud/event-simulator@sha256:1e3e9c72136bbc76c96dd98f29c04f298c3ae241c7d44e2bf70bcc209b030bf9
+    Port:           <none>
+    Host Port:      <none>
+    State:          Running
+      Started:      Sat, 28 Feb 2026 09:50:54 +0000
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /log from log-volume (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-4zrk5 (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
+Volumes:
+  log-volume:
+    Type:          HostPath (bare host directory volume)
+    Path:          /var/log/webapp
+    HostPathType:  DirectoryOrCreate
+  kube-api-access-4zrk5:
+    Type:                    Projected (a volume that contains inserted data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  19m   default-scheduler  Successfully assigned elastic-stack/app to controlplane
+  Normal  Pulling    19m   kubelet            Pulling image "kodekloud/event-simulator"
+  Normal  Pulled     15m   kubelet            Successfully pulled image "kodekloud/event-simulator" in 5.567s (4m43.302s including waiting). Image size: 28855042 bytes.
+  Normal  Created    15m   kubelet            Created container: app
+  Normal  Started    15m   kubelet            Started container app
+```
+
 You can also view the logs directly by using:
 
 ```bash theme={null}
@@ -241,6 +302,25 @@ kubectl -n elastic-stack exec -it app -- cat /log/app.log
 ```
 
 ---
+
+## Next steps
+
+> The app pod in the elastic-stack namespace currently writes logs to /log/app.log.
+> Your task is to add a sidecar container that will ship these logs to Elasticsearch.
+
+#### Requirements:
+
+- Add a sidecar container named sidecar to the existing app pod.
+- Use the image: kodekloud/filebeat-configured.
+- Mount the log volume: The existing log-volume must be mounted to the sidecar container at /var/log/event-simulator/.
+- Implementation: Define the sidecar as a Kubernetes native sidecar container using initContainers, and set the restartPolicy to Always.
+
+#### Important Notes:
+
+- You will need to delete and re-create the pod to add the sidecar container.
+- Do not modify the existing app container or volume configuration.
+- The sidecar should be defined as an initContainer and must run continuously alongside the main application container
+- Refer to the diagram below for your configuration.
 
 ## Adding a Sidecar Container for Log Shipping
 

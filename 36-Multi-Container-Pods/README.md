@@ -1,14 +1,47 @@
 # Multi Container Pods
 
-> 💡 This article explores multi-container pods in Kubernetes, highlighting their benefits for deploying and managing closely linked services together.
+> 💡 This article explores the design, functionality, and benefits of using multi-container pods in Kubernetes.
 
-By breaking down a monolithic application into smaller, independent microservices, you can deploy, manage, and scale each service individually. However, certain scenarios require two closely linked services to run together. For example, a web server might need to be paired with a dedicated logging agent. In this configuration, each web server instance is automatically associated with its own logging service, allowing both services to scale concurrently while keeping their codebases distinct.
+Multi-container pods in Kubernetes allow you to run two or more containers together in a single pod. This approach is essential when containerized services must work closely together, such as pairing a web server with a logging agent. In such cases, the containers share the same lifecycle, network namespace, and storage volumes, ensuring smooth communication and synchronized behavior.
 
-Multi-container pods are designed to group containers that share the same lifecycle. This means they are created and terminated together, share a common network namespace (allowing seamless communication via localhost), and have access to shared storage volumes. This design simplifies configurations by eliminating the complexities of volume sharing and networking between separate pods.
+## Microservices vs. Tightly Coupled Services
+
+Modern application development increasingly favors microservices, where large monolithic applications are broken down into smaller, independent sub-components. This design paradigm allows developers to build, deploy, and scale individual services independently, streamlining both development and maintenance.
+
+However, there are specific situations when two services must operate side by side. For example, a web server might need a dedicated logging agent running alongside it to capture detailed logs without incorporating supplementary code into the web server container. This setup facilitates independent deployment and scaling while keeping the application code modular.
+
+## Advantages of Multi-Container Pods
+
+Multi-container pods offer several significant advantages:
+
+- **Shared Lifecycle:** All containers in the pod start and stop simultaneously.
+- **Unified Network Namespace:** Containers communicate via localhost without extra configuration.
+- **Shared Storage Volumes:** Persistent and shared storage is available between containers.
 
 ![alt text](../Images/Multi-Container-Pods.png)
 
-To create a multi-container pod, add the configuration for the new container under the `containers` array in your pod definition file. For instance, you can incorporate a container named "log-agent" alongside an existing web application container. The following YAML snippet demonstrates how to configure a pod that contains both a web application and its corresponding logging agent:
+> 💡 To create a multi-container pod, simply list multiple container definitions under the `containers` array in your pod specification file.
+
+## Creating a Multi-Container Pod
+
+Below is an example of a basic pod definition with a single container:
+
+```yaml theme={null}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp
+  labels:
+    name: simple-webapp
+spec:
+  containers:
+    - name: simple-webapp
+      image: simple-webapp
+      ports:
+        - containerPort: 8080
+```
+
+To transform this into a multi-container pod, add another container entry to include, for instance, a log agent container alongside the web server:
 
 ```yaml theme={null}
 apiVersion: v1
@@ -27,8 +60,42 @@ spec:
       image: log-agent
 ```
 
-This configuration ensures that both containers share the same lifecycle, network, and storage resources, allowing them to work together seamlessly.
+## Multi-Container Pod Design Patterns
 
-> 💡 Remember that the `containers` field is an array in the pod specification, which enables you to define and manage multiple containers under a single pod.
+There are three common patterns for designing multi-container pods:
 
-That concludes our discussion on multi-container pods. Next, proceed to the coding exercises section to practice configuring multi-container pods and reinforce your understanding of the concepts discussed here. Happy coding, and see you in the next article!
+1. **Sidecar Pattern**
+2. **Adapter Pattern**
+3. **Ambassador Pattern**
+
+### Sidecar Pattern
+
+The sidecar pattern involves deploying a supplemental container, such as a logging agent, alongside your primary container. This design pattern enables services to extend or enhance the capabilities of the main application without altering its code. It is particularly useful when the application produces logs in various formats across different services.
+
+![alt text](../Images/sidecar.png)
+
+Refer this documentation https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/
+
+### Adapter Pattern
+
+The adapter pattern is useful when you need to standardize data formats. For example, when logs from multiple sources need to be unified before they are processed by a central logging service. Log messages might vary as follows:
+
+```plaintext theme={null}
+12-JULY-2018 16:05:49 "GET /index1.html" 200
+12/JUL/2018:16:05:49 -0800 "GET /index2.html" 200
+GET 1531411549 "/index3.html" 200
+```
+
+An adapter container can normalize these formats, ensuring consistency before the logs reach the centralized system.
+
+### Ambassador Pattern
+
+The ambassador pattern is applied when an application needs to communicate with different database environments. For example, the application might require a local database for development, another for testing, and a production database in live deployment. Instead of incorporating logic to handle multiple environments in the application code, an ambassador container acts as a proxy. The application always sends requests to localhost, while the ambassador routes traffic to the appropriate database backend.
+
+![alt text](../Images/ambassador.png)
+
+Each of these patterns leverages the flexible design of multi-container pods by including multiple containers within a single pod specification.
+
+> 💡 Head over to the coding exercises section to practice configuring multi-container pods. Real-world practice will solidify your understanding of these patterns and their implementation in Kubernetes.
+
+That concludes this lesson on multi-container pods in Kubernetes. Thank you for reading, and see you in the next lesson!
