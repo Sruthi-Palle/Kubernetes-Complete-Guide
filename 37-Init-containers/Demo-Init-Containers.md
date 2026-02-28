@@ -267,7 +267,22 @@ Init Containers:
       Exit Code:    127
 ```
 
-The command "sleepee" is misspelled, causing the init container to fail. To verify, check the init container logs:
+Verify the logs of `orange` pod
+
+```bash theme={null}
+k logs orange
+```
+
+shows ouput as
+
+```bash theme={null}
+Defaulted container "orange-container" out of: orange-container, init-myservice (init)
+Error from server (BadRequest): container "orange-container" in pod "orange" is waiting to start: PodInitializing
+```
+
+> Note: Just running `kubectl logs podname` always fetches logs from the orange container. So you specify logs for init container
+
+To verify, check the init container logs:
 
 ```bash theme={null}
 k logs orange -c init-myservice
@@ -278,6 +293,8 @@ The logs confirm the error:
 ```plaintext theme={null}
 sh: sleeep: not found
 ```
+
+The command "sleepee" is misspelled, causing the init container to fail.
 
 > 💡 Ensure that commands are correctly spelled in your container specifications because minor typos can prevent your pod from initializing properly.
 
@@ -320,7 +337,7 @@ If live edits are rejected, save the modified YAML to a file and force the repla
 k replace --force -f <file-with-updated-pod-spec.yaml>
 ```
 
-After replacing the pod, verify that the logs from the init container no longer contain errors:
+After replacing the pod,verify that the logs from the init container no longer contain errors:
 
 ```bash theme={null}
 k logs orange -c init-myservice
