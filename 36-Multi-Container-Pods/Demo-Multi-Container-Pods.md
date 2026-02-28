@@ -248,7 +248,7 @@ To enable log shipping to Elasticsearch, update the `app` pod to include a sidec
 
 An image illustrating the pod configuration with the Filebeat sidecar is shown below:
 
-![alt text](../images/Multi-Container-Pods-3.png)
+![alt text](../Images/Multi-Container-Pods-3.png)
 
 ### Editing the Pod for a Sidecar
 
@@ -314,20 +314,20 @@ After applying the changes, verify that logs are being shipped to and visualized
 
 The screenshot below shows the index pattern creation interface:
 
-![alt text](../images/Multi-Container-Pods-1.png)
+![alt text](../Images/Multi-Container-Pods-1.png)
 
 Then, navigate to the "Discover" section to view the logs:
 
-![alt text](../images/Multi-Container-Pods-2.png)
+![alt text](../Images/Multi-Container-Pods-2.png)
 
 Additional dashboards will highlight:
 
 - Log entries with timestamps and corresponding messages.
 - Detailed event information, including user actions, warnings, and order failures.
 
-![alt text](../images/Multi-Container-Pods-4.png)
+![alt text](../Images/Multi-Container-Pods-4.png)
 
-![alt text](../images/Multi-Container-Pods-5.png)
+![alt text](../Images/Multi-Container-Pods-5.png)
 
 With these steps completed, logs from the application are successfully forwarded to Elasticsearch and visualized in Kibana. This configuration can be extended to scale across multiple pods or deployments within your Kubernetes environment.
 

@@ -59,7 +59,7 @@ While RBAC handles basic authorization, it does not offer advanced validations o
 
 Admission controllers can validate requests, modify configurations, or perform extra operations before the resources are persisted to etcd.
 
-![alt text](../images/Admission-Controllers.png)
+![alt text](../Images/Admission-Controllers.png)
 
 ### Built-In Admission Controllers
 

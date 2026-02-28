@@ -68,7 +68,7 @@ Next, delete the "rabbit" pod since it is no longer needed:
 kubectl delete pod rabbit
 ```
 
-![alt text](../images/Demo-Resource-Limits-1.png)
+![alt text](../Images/Demo-Resource-Limits-1.png)
 
 ## Troubleshooting the "elephant" Pod
 
@@ -156,7 +156,7 @@ kubectl get pod elephant
 ```
 
 If needed, delete the pod again after validation, allowing a few seconds for the process to terminate.
-![alt text](../images/Demo-Resource-Limits.png)
+![alt text](../Images/Demo-Resource-Limits.png)
 
 ## Conclusion
 
