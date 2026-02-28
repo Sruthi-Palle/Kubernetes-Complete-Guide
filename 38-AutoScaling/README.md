@@ -19,7 +19,7 @@ Conversely, if an application supported multiple instances, additional servers c
 - **Vertical Scaling:** Increases resources (CPU, memory) of an existing server.
 - **Horizontal Scaling:** Increases server count by adding more instances.
 
-![alt text](../images/autoscaling.png)
+![alt text](../Images/autoscaling.png)
 
 ## Scaling in Kubernetes
 
@@ -28,7 +28,7 @@ Kubernetes is specifically designed for hosting containerized applications and i
 1. **Workload Scaling:** Adjusting the number of containers or Pods running in the cluster.
 2. **Cluster (Infrastructure) Scaling:** Adding or removing nodes (servers) from the cluster.
 
-![alt text](../images/autoscaling-1.png)
+![alt text](../Images/autoscaling-1.png)
 
 When scaling in a Kubernetes cluster, consider the following:
 
@@ -39,7 +39,7 @@ When scaling in a Kubernetes cluster, consider the following:
   - **Horizontal Scaling:** Create additional Pods.
   - **Vertical Scaling:** Modify the resource limits and requests for existing Pods.
 
-![alt text](../images/autoscaling-2.png)
+![alt text](../Images/autoscaling-2.png)
 
 ## Approaches to Scaling in Kubernetes
 
