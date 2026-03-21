@@ -215,8 +215,82 @@ rules:
     resourceNames: ["blue", "orange"]
 ```
 
-## Conclusion
+### Example Scenarios
 
-This lesson provided an in-depth look at implementing Role-Based Access Controls in Kubernetes. You learned how to create roles and role bindings, verify permissions, and restrict access to specific resources. Practicing these exercises will enhance your grasp of RBAC and help you manage Kubernetes security effectively.
+#### 1. Find which authorization modes enabled
+
+Inspecting the API Server Configuration
+Start by inspecting the kube-apiserver manifest to identify the configured authorization modes. In the manifest snippet below, note the use of “Node,RBAC” for the authorization mode:
+command:
+
+```bash theme={null}
+cat /etc/kubernetes/manifests/kube-apiserver.yaml
+```
+
+```yaml theme={null}
+creationTimestamp: null
+labels:
+  component: kube-apiserver
+  tier: control-plane
+name: kube-apiserver
+namespace: kube-system
+spec:
+  containers:
+    - command:
+        - kube-apiserver
+        - --advertise-address=10.48.174.6
+        - --allow-privileged=true
+        - --authorization-mode=Node,RBAC
+        - --client-ca-file=/etc/kubernetes/pki/ca.crt
+        - --enable-admission-plugins=NodeRestriction
+        - --enable-bootstrap-token-auth=true
+        - --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt
+        - --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
+        - --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key
+        - --etcd-servers=https://127.0.0.1:2379
+        - --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt
+        - --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key
+        - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
+        - --proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt
+        - --proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key
+        - --requestheader-allowed-names=front-proxy-client
+        - --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt
+        - --requestheader-extra-headers-prefix=X-Remote-Extra-
+        - --requestheader-group-headers=X-Remote-Group
+        - --requestheader-username-headers=X-Remote-User
+        - --secure-port=6443
+        - --service-account-issuer=https://kubernetes.default.svc.cluster.local
+        - --service-account-key-file=/etc/kubernetes/pki/sa.pub
+        - --service-account-signing-key-file=/etc/kubernetes/pki/sa.key
+        - --tls-cert-file=/etc/kubernetes/pki/apiserver.crt
+        - --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
+  image: k8s.gcr.io/kube-apiserver:v1.23.0
+  imagePullPolicy: IfNotPresent
+  livenessProbe:
+```
+
+An alternative verification method is to inspect the running processes on the control plane. For instance, execute the following command:
+
+```bash theme={null}
+root@controlplane ~ ps aux | grep authorization
+root      3403  0.0  0.0  830588 115420 ?        Ssl  22:54   0:55 kube-controller-manager --allocate-node-authorization-kubeconfig=/etc/kubernetes/controller-manager.conf --authorization-kubeconfig=/etc/kubernetes/controller-manager.conf --bind-address=127.0.0.1 --client-ca-file=/etc/kubernetes/pki/ca.crt --cluster-cidr=10.244.0.0/16 --kubelet-client-certificate=/etc/kubernetes/pki/ca.key --controllers=*,bootstrapsigner,tokens --kubelet-client-key=/etc/kubernetes/pki/front-proxy-client.key --service-account-privileged=false --service-cluster-ip-range=10.96.0.0/12 --use-service-account-credentials=true
+root      3614  0.0  0.0  759136  55292 ?        Ssl  22:55   0:10 kube-scheduler --authentication-kubeconfig=/etc/kubernetes/scheduler.conf --bind-address=127.0.0.1 --kubeconfig=/etc/kubernetes/scheduler.conf --leader-elect=true
+root      3630  0.0  0.1 111896  316984 ?        S    22:55   2:07 kube-apiserver --advertise-address=10.4.8.174.6 --allow-privileged=true --authorization-mode=Node,RBAC --client-ca-file=/etc/kubernetes/pki/ca.crt --enable-admission-plugins=NodeRestriction --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname --proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt --proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key --requestheader-allowed-names=X-Remote-Group --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-client-ca.crt --requestheader-headers-prefix=X-Remote-Extra --requestheader-group-headers=X-Remote-Group --requestheader-username-headers=X-Remote-User --secure-port=6443 --service-account-issuer=https://kubernetes.default.svc.cluster.local --service-account-key-file=/etc/kubernetes/pki/sa.key --service-cluster-ip-range=10.96.0.0/12 --tls-cert-file=/etc/kubernetes/pki/apiserver.crt --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
+root      25283  0.0  0.0  13444  1068 pts/0    S+   23:40   0:00 grep --color=auto authorization
+```
+
+The output confirms that the kube-apiserver is running with the “Node,RBAC” authorization mode.
+
+#### 2. To count the roles across all namespaces, use this command:
+
+```bash theme={null}
+
+root@controlplane ~ k get roles -A --no-headers | wc -l
+
+12
+
+```
+
+> 💡 Always verify RBAC changes by testing user permissions in the designated namespace to ensure that the intended access is provided while maintaining security.
 
 For additional details on Kubernetes RBAC, refer to the [Kubernetes Documentation](https://kubernetes.io/docs/) and explore best practices for securing your clusters.
