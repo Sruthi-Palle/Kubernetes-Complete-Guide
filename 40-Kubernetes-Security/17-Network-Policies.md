@@ -42,6 +42,8 @@ Now, consider the earlier scenario with three pods: one for the front-end web se
 
 ### Restricting Communication with Network Policies
 
+> 💡 Kubernetes NetworkPolicy, which acts as a virtual firewall for your pods. By default, pods in Kubernetes are "non-isolated" and accept traffic from anywhere. Once you apply this policy, the targeted pods become isolated, only allowing the specific traffic you've defined.
+
 If your security requirements dictate that the front-end web server should not communicate directly with the database server, you can enforce this by implementing a network policy. For example, you might create a policy that only permits the API server to interact with the database server.
 
 A network policy in Kubernetes is defined as an object, which you attach to one or more pods using labels and selectors. In this scenario, the policy would only allow ingress traffic from the API pod on port 3306 while blocking all other sources from accessing the database pod.
