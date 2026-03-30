@@ -148,7 +148,7 @@ In this example, a Linux bridge is created:
    ip link add v-net-0 type bridge
    ```
 
-   > Note: The Bridge as a Hybrid: To the host, a bridge (e.g., vnet0) appears as a standard network interface. To the namespaces, it functions as a switch.
+   > 💡 Note: The Bridge as a Hybrid: To the host, a bridge (e.g., vnet0) appears as a standard network interface. To the namespaces, it functions as a switch.
 
 2. Bring the bridge interface up:
 
@@ -201,7 +201,7 @@ You can now verify connectivity from the host, for example:
 ping 192.168.15.1
 ```
 
-> Because the bridge is an interface on the host, assigning an IP address to the bridge itself (on the same subnet as the namespaces) allows the host to communicate directly with the namespaces.
+> 💡 Because the bridge is an interface on the host, assigning an IP address to the bridge itself (on the same subnet as the namespaces) allows the host to communicate directly with the namespaces.
 
 All traffic within this network remains private to the host, ensuring that namespaces are not directly accessible from external networks.
 
@@ -220,7 +220,7 @@ Namespaces cannot naturally reach the LAN or external hosts (e.g., 192.168.1.3) 
 ip netns exec blue ping 192.168.1.3
 ```
 
-> The only door to the outside world is the ethernet port(eth0) on the host
+> 💡 The only door to the outside world is the ethernet port(eth0) on the host
 
 Checking the routing table in the blue namespace using:
 
