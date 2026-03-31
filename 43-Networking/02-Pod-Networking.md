@@ -1,31 +1,36 @@
 # Pod Networking
 
-> 💡 This article explains pod networking in Kubernetes, we explain how pod networking is implemented within a Kubernetes cluster, detailing the steps that make inter-pod communication seamless across multiple nodes.
+> This article explores pod networking in Kubernetes, covering IP address assignment, inter-pod communication, and the use of the Container Network Interface for automation.
 
-In previous Cluster networking article, We made sure that Kubernetes clusters consist of multiple master and worker nodes with pre-configured networking that allows full node-to-node communication. We assume that all Kubernetes control plane components (e.g., kube-apiserver, etcd, and kubelet) are already set up properly. With this foundation in place, the next step is deploying your applications with a focus on robust pod-level networking.
+We will explore how pods are assigned unique IP addresses and how they communicate both within a single node and across multiple nodes. By understanding these fundamentals, you’ll be better prepared to deploy resilient and scalable applications on your Kubernetes clusters.
 
-> Kubernetes has laid out requirements for Pod Level Networking:
->
-> - Each pod gets a unique IP address.
-> - Every pod on a node can reach every other pod on that node using its IP address.
-> - Pods across different nodes can communicate using a consistent addressing scheme.
->   These requirements ensure that Kubernetes can support both local (node-level) and cross-node communications without relying on NAT rules.
+So far, you have set up several Kubernetes master and worker nodes with proper networking configurations. The nodes are fully interconnected, and firewalls or network security groups are configured to allow the necessary communication between control plane components such as kube-apiserver, etcd, and kubelets. With control plane setup complete, the next crucial step is configuring the pod network.
 
-## Understanding the Basics
+Before deploying applications, consider these essential questions:
 
-Before deploying applications, it is crucial to address several questions:
+- How are pods addressed?
+- How do pods communicate with one another?
+- How can pod services be accessed both from within the cluster and externally?
 
-- How are pods assigned IP addresses?
-- How do these pods communicate both within a node and across nodes?
-- How can services running in these pods be accessed from inside or outside the cluster?
+Kubernetes does not include an out-of-the-box pod networking solution but defines strict requirements that your networking implementation must meet. These requirements include:
 
-Kubernetes leaves the implementation details for pod networking to the user, as long as the chosen solution meets the basic connectivity requirements. Many networking solutions are available;
+- Each pod must receive its own unique IP address.
+- Every pod on the same node must be able to reach every other pod using its IP address.
+- Every pod on different nodes should communicate with each other seamlessly with no additional Network Address Translation (NAT), regardless of the underlying IP ranges.
 
-- Here, we demonstrate the pod level networking using Linux network namespaces, bridge networks, and IP address management inspired by CNI concepts. So this will help in understanding how other solutions work.
+![alt text](../Images/Pod-Networking-1.png)
 
-### Setting Up a Simple Bridge Network
+As long as your solution automatically assigns IP addresses and provides seamless connectivity both within a node and across nodes, it satisfies Kubernetes’ requirements.
 
-Below is an example that sets up a simple bridge network and connects network namespaces:
+> 💡 Ensure your networking solution supports automatic IP assignment and connectivity without relying on manual NAT configuration.
+
+## Building a Pod Network
+
+Let’s design a basic pod network solution using core networking concepts such as routing, IP address management, namespaces, and the Container Network Interface (CNI).
+
+Imagine a three-node cluster where all nodes, regardless of their role, participate equally in the network. The external network assigns IP addresses in the 192.168.1.x range (e.g., node 1 receives 192.168.1.11, node 2 receives 192.168.1.12, and node 3 receives 192.168.1.13). When containers are created, each one is provided with its dedicated network namespace. To enable communication among these namespaces, attach each to a local bridge network on every node.
+
+Begin by creating a bridge network on each node and configuring it with a specific IP address. For example:
 
 ```bash theme={null}
 ip link add v-net-0 type bridge
@@ -40,105 +45,119 @@ ip netns exec blue ip route add 192.168.1.0/24 via 192.168.15.5
 iptables -t nat -A POSTROUTING -s 192.168.15.0/24 -j MASQUERADE
 ```
 
-Imagine a cluster with three nodes where every node runs a combination of management and workload pods. Although node roles are flexible, the networking concepts remain consistent across nodes.
+In this configuration, all nodes are treated equivalently since both management and workload pods rely on the same networking principles.
 
-### Cluster Network Planning
+### Planning Pod Connectivity
 
-Consider the following plan for a three-node cluster:
+Given that nodes have public IPs, assign each node’s bridge network its own private subnet. For example, you might allocate:
 
-1. **External Network Configuration**: Each node has an IP in the 192.168.1.0 series (e.g., 192.168.1.11, 192.168.1.12, and 192.168.1.13).
-2. **Container Network Namespaces**: Kubernetes creates unique network namespaces when containers start. These namespaces must connect to a network to allow inter-container communication.
-3. **Bridge Networks on Each Node**: Create a bridge network on every node. Assign a distinct subnet to each bridge, such as:
-   - Node one: 10.244.1.0/24
-   - Node two: 10.244.2.0/24
-   - Node three: 10.244.3.0/24
+- Node 1: 10.244.1.0/24
+- Node 2: 10.244.2.0/24
+- Node 3: 10.244.3.0/24
 
-When a container is created, a virtual cable (veth pair) connects its network namespace to the node’s bridge network. One end is inserted into the container’s namespace and the other attaches to the node’s bridge. An IP address is assigned (for example, 10.244.1.2), and a route to the default gateway is configured before enabling the interface.
+Assign the corresponding IP addresses to each node’s bridge interface as follows:
 
-Below is a sample snippet from a script that connects a container to the network:
+```bash theme={null}
+ip link add v-net-0 type bridge
+# On node 1
+ip addr add 10.244.1.1/24 dev v-net-0
+
+# On node 2
+ip addr add 10.244.2.1/24 dev v-net-0
+
+# On node 3
+ip addr add 10.244.3.1/24 dev v-net-0
+```
+
+Each container requires additional network configuration. A script that runs the following commands can automate the process for every new container:
+
+1. Create a virtual Ethernet pair (veth pair) connecting the container’s network namespace with the node’s bridge.
+2. Configure an IP address within the container and set up a default gateway.
+
+For example, assume the free IP address 10.244.1.2 is allocated to a container:
 
 ```bash theme={null}
 # Create veth pair
-ip link add <veth-in-host> type veth peer name <veth-in-namespace>
-# Attach one end to the container’s namespace
-ip link set <veth-in-namespace> netns <namespace>
-# Attach the other end to the bridge
-ip link set <veth-in-host> master <bridge>
-# Assign IP address to the container’s interface
-ip -n <namespace> addr add <IP-address>/24 dev <veth-in-namespace>
-# Add default route in the container’s namespace
-ip -n <namespace> route add default via <bridge-IP>
-# Bring up the container’s interface
-ip -n <namespace> link set <veth-in-namespace> up
+ip link add <veth_container> type veth peer name <veth_bridge>
+
+# Attach veth pair to the appropriate network namespace and bridge
+ip link set <veth_container> netns <namespace>
+ip link set <veth_bridge> master v-net-0
+
+# Assign IP address and configure routing inside the container’s namespace
+ip -n <namespace> addr add 10.244.1.2/24 dev <veth_container>
+ip -n <namespace> route add default via 10.244.1.1
+
+# Bring up the interface in the namespace
+ip -n <namespace> link set <veth_container> up
 ```
 
-Executing this script on each node ensures that all containers receive an IP address and are connected to their respective internal networks.
+These commands configure a single container. To scale your Kubernetes deployment, replicate and automate this script across nodes.
 
-### Cross-Node Communication
+## Enabling Inter-Node Communication
 
-One of the challenges is enabling communication between pods on different nodes. For example, if a pod with IP 10.244.1.2 on node 1 attempts to ping a pod with IP 10.244.2.2 on node 2, the ping may initially fail due to unknown routes between subnets:
+After establishing unique IP addresses for each pod on every node, the next challenge is to enable cross-node communication. Consider a scenario where a pod at 10.244.1.2 on node 1 needs to communicate with a pod at 10.244.2.2 on node 2. Without an appropriate route, node 1 wouldn’t know how to reach the pod on node 2.
+
+To resolve this issue, add a route in node 1’s routing table that directs traffic for the 10.244.2.0/24 subnet via node 2’s external IP address (192.168.1.12):
 
 ```bash theme={null}
-bluepod$ ping 10.244.2.2
-Connect: Network is unreachable
+# On node 1
+ip route add 10.244.2.2 via 192.168.1.12
 ```
 
-To resolve this, add a route on node 1 that directs traffic for 10.244.2.2 via node 2’s external IP (e.g., 192.168.1.12):
+After configuring this route, pods on node 1 can communicate with those on node 2. Similar routes should be configured on all nodes to ensure seamless inter-node connectivity.
 
-```bash theme={null}
-node1$ ip route add 10.244.2.2 via 192.168.1.12
-```
+> 💡 Manually configuring routes on each node may suffice for small setups, but as your infrastructure grows, consider using a centralized router or dynamic routing protocols to manage these routes efficiently.
 
-After configuring the routing, the ping command should succeed:
-
-```bash theme={null}
-bluepod$ ping 10.244.2.2
-64 bytes from 10.244.2.2: icmp_seq=1 ttl=63 time=0.587 ms
-64 bytes from 10.244.2.2: icmp_seq=2 ttl=63 time=0.466 ms
-```
-
-Similarly, add these routes on all nodes to cover all pod subnets:
-
-```bash theme={null}
-node1$ ip route add 10.244.2.2 via 192.168.1.12
-node1$ ip route add 10.244.3.2 via 192.168.1.13
-node2$ ip route add 10.244.1.2 via 192.168.1.11
-node2$ ip route add 10.244.3.2 via 192.168.1.13
-node3$ ip route add 10.244.1.2 via 192.168.1.11
-node3$ ip route add 10.244.2.2 via 192.168.1.12
-```
-
-> 💡 Manually configuring routes on every host is impractical for large-scale deployments. A more scalable solution involves configuring a centralized router to manage all subnet routes and setting each node's default gateway to this router.
-
-Below is an image that illustrates a Docker network setup with three nodes, each with distinct IP addresses and subnet configurations, connected via a virtual network bridge:
+For more complex networks, a centralized router can simplify the management of the aggregated subnet (e.g., combining 10.244.1.0/24, 10.244.2.0/24, and 10.244.3.0/24 into a single 10.244.0.0/16 network).
 
 ![alt text](../Images/Pod-Networking.png)
 
-## Integrating Container Network Interface (CNI)
+## Automating Networking with CNI
 
-In our lab setup, we executed scripts manually to configure pod networking. However, in a production Kubernetes environment where thousands of pods may be created per minute, this manual approach is not feasible.
+Manually configuring bridge networks and routing for every container is impractical in large environments where thousands of pods could be created per minute. The Container Network Interface (CNI) automates these tasks by executing networking scripts as pods are initiated.
 
-This is where the Container Network Interface (CNI) becomes essential. CNI specifies how Kubernetes should invoke a networking script each time a pod is created. To conform with CNI standards, the networking script must have:
-
-- An "add" section to connect the container to the network.
-- A "delete" section to disconnect the container, remove interfaces, and free up the IP address.
+The container runtime on each node reads a CNI configuration that specifies the networking script. Upon pod creation, the runtime invokes the script with the "add" command, passing the necessary container details (such as container name and namespace). The script then sets up the pod’s networking. Here is a simplified example of such a script:
 
 ![alt text](../Images/Pod-Networking-2.png)
 
-When the container runtime launches a container, it uses the CNI configuration (provided as a command-line argument) to execute the relevant script with the command "add" and pass the container’s name and namespace identifier.
+```bash theme={null}
+# Create a virtual Ethernet pair
+ip link add <veth_container> type veth peer name <veth_bridge>
 
-Below is an example snippet that illustrates the CNI execution process:
+# Attach veth pair to the designated namespace and bridge
+ip link set <veth_container> netns <namespace>
+ip link set <veth_bridge> master v-net-0
+
+# Assign an IP address and configure default routing in the container's namespace
+ip -n <namespace> addr add <container_ip>/24 dev <veth_container>
+ip -n <namespace> route add default via <bridge_ip>
+
+# Bring up the interface in the container's namespace
+ip -n <namespace> link set <veth_container> up
+```
+
+To maintain consistency with CNI standards, the script must also support a delete operation to clean up the container’s network interfaces and free the assigned IP address when the pod is terminated:
 
 ```bash theme={null}
-ip -n <namespace> link set <interface> up
-ip link del <interface>
+ip -n <namespace> link set <veth_container> down
+ip link del <veth_bridge>
+```
+
+The container runtime executes the script as follows when a container is created:
+
+```bash theme={null}
 ./net-script.sh add <container> <namespace>
+```
+
+And when a container is deleted:
+
+```bash theme={null}
+./net-script.sh del <container> <namespace>
 ```
 
 ## Conclusion
 
-In this article, we covered the essential concepts behind pod networking in Kubernetes—from manual network namespace and bridge configuration to the role of CNI in automating network interface management. The techniques discussed here lay a solid foundation for understanding and troubleshooting pod networking in a Kubernetes cluster.
+In this guide, we explored the fundamental principles of pod networking in Kubernetes. We explained how each pod receives a unique IP address and established connectivity by configuring bridge networks on nodes and setting up inter-node routing. We also introduced the Container Network Interface (CNI), which automates these processes in dynamic environments.
 
-Stay tuned for upcoming articles where we integrate detailed CNI configurations into Kubernetes workflows and provide practical tests to reinforce your learning.
-
-For more insight into Kubernetes networking, visit the [Kubernetes Documentation](https://kubernetes.io/docs/).
+In upcoming articles, we will examine additional networking solutions and provide deeper insights into IP address management and network troubleshooting within Kubernetes clusters.
