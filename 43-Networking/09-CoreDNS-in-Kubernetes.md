@@ -1,14 +1,12 @@
 # CoreDNS in Kubernetes
 
-> This lesson covers how Kubernetes uses CoreDNS for DNS resolution to facilitate communication between pods and services within a cluster.
-
-Welcome to this lesson on CoreDNS in Kubernetes. In this guide, you will learn how Kubernetes implements DNS resolution within a cluster to facilitate seamless communication between pods and services.
-
-In our previous lesson, we explored how to address a service or pod from another pod. Now, we will explain how Kubernetes leverages a centralized DNS server to achieve that functionality.
+> 💡 In this article, We cover how Kubernetes uses CoreDNS for DNS resolution to facilitate communication between pods and services within a cluster.
 
 Imagine you have two pods with different IP addresses. One approach to enable communication between them is to add an entry into each pod’s hosts file. For instance, on the first pod, you might map the second pod (named "web") to IP 10.244.2.5, and on the second pod, map the first pod (named "test") to IP 10.244.1.5. However, when dealing with thousands of pods that are frequently created and removed, manually managing these entries becomes impractical.
 
 > 💡 Instead of manually editing hosts files, Kubernetes deploys a central DNS server. Each pod is pre-configured via its /etc/resolv.conf file to use this centralized server (typically at 10.96.0.10), which automatically updates DNS records for new pods and services.
+
+![alt text](../Images/CoreDNS-in-Kubernetes.png)
 
 Kubernetes does not create DNS entries for individual pods manually. Instead, it sets up DNS records for services, and for pods, it converts IP addresses into hostnames by replacing dots with dashes.
 
@@ -51,7 +49,7 @@ This configuration performs the following functions:
 - Forwards unresolved DNS queries (such as [www.google.com](http://www.google.com)) to the nameserver specified in the pod’s /etc/resolv.conf.
 - Caches DNS responses and supports dynamic reloads of the configuration upon changes.
 
-Note that this configuration is stored in a ConfigMap. If adjustments are needed, simply update the ConfigMap:
+Note that this configuration(CoreFile) is passed into the pod as a ConfigMap object. If adjustments are needed, simply update the ConfigMap:
 
 ```bash theme={null}
 kubectl get configmap -n kube-system
@@ -63,7 +61,7 @@ Once the CoreDNS pod is running with the correct configuration, it continuously 
 
 ## DNS Service and Pod Configuration
 
-To enable pods to communicate with the CoreDNS server, Kubernetes creates a service (named kube-dns by default) with the IP address 10.96.0.10. This IP is automatically set as the primary nameserver in all pod /etc/resolv.conf files. The service details are as follows:
+To enable pods to communicate with the CoreDNS server, When we deploy the DNS solution, Kubernetes also creates a service (named kube-dns by default) with the IP address 10.96.0.10 . This IP is automatically set as the primary nameserver in all pod /etc/resolv.conf files. The service details are as follows:
 
 ```bash theme={null}
 kubectl get service -n kube-system
@@ -91,7 +89,7 @@ clusterDomain: cluster.local
 
 ## Resolving Services and Pods
 
-With the correct DNS configuration, pods can resolve services using different domain name formats. For example, if you have a web service deployed in your cluster, you can access it using any of the following names:
+With the correct DNS configuration in pods, pods can resolve services using different domain name formats. For example, if you have a web service deployed in your cluster, you can access it using any of the following names:
 
 - web-service
 - web-service.default
@@ -140,5 +138,3 @@ host 10-244-2-5.default.pod.cluster.local
 ## Conclusion
 
 By deploying CoreDNS and configuring all pods to use the centralized DNS service, Kubernetes enables dynamic and automated DNS resolution for both services and pods. This robust setup eliminates the need for manual host file configuration, thereby streamlining communication across the cluster.
-
-Revisit and practice these concepts to deepen your understanding of managing DNS within a Kubernetes environment. Happy learning!
