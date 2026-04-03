@@ -54,36 +54,7 @@ ip address
 
 Review the output and look for the interface that shows the relevant IP address (in this case, an IP ending in `.3`). In the sample provided, the `eth0` interface has the correct binding.
 
-```bash theme={null}
-controlplane ~ ⌁ ip address
-1: lo: <LOOPBACK UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-       valid_lft forever preferred_lft forever
-
-2: flannel.1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN group default
-    link/ether 7a:88:3a:71:47:f7 brd ff:ff:ff:ff:ff:ff
-    inet 10.244.1.1/32 scope global flannel.1
-       valid_lft forever preferred_lft forever
-
-3: cni0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UP group default
-    link/ether 4a:ba:dc:3d:2c:7b brd ff:ff:ff:ff:ff:ff
-    inet 10.244.0.2/24 scope global cni0
-       valid_lft forever preferred_lft forever
-
-4: veth38a0c647: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue master cni0 state UP group default
-    link/ether 4e:41:6e:6b:6d:bb brd ff:ff:ff:ff:ff:ff
-
-5: veth0f5b312d: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue master cni0 state UP group default
-    link/ether 5e:9b:da:c5:43:fa brd ff:ff:ff:ff:ff:ff
-    inet 192.168.0.2/24 brd 192.168.0.255 scope global eth0
-       valid_lft forever preferred_lft forever
-
-6: eth0@if49800f: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master cni0 state UP group default
-    link/ether 56:1b:87:f1:9a:05 brd ff:ff:ff:ff:ff:ff
-    inet 172.25.0.42/24 brd 172.25.0.255 scope global eth1
-       valid_lft forever preferred_lft forever
-```
+![alt text](../Images/Demo-Network-Commands.png)
 
 > 💡 The interface selected for cluster connectivity is the one with the IP address matching that of the control plane node.
 
@@ -97,6 +68,7 @@ Once you know the interface name (in this example, `eth0`), you can use the foll
 ip address show eth0
 ```
 
+![alt text](../Images/Demo-Network-Commands-1.png)
 The MAC address appears in the output; for instance, you might see a value like `5e:9b:da:c5:43:fa`. Use this value as needed.
 
 ---
@@ -128,26 +100,7 @@ ip address
 ```
 
 Scroll through the output until you find the interface associated with the internal IP (e.g., matching `192.5.114.6`). The corresponding MAC address—in this case, `02:42:c0:05:72:06`—is the answer.
-
-```bash theme={null}
-root@node01 ~  # ip address
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-       valid_lft forever preferred_lft forever
-2: flannel.1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN group default
-    link/ether 36:1c:bg:bf:ef:db brd ff:ff:ff:ff:ff:ff
-    inet 10.244.0.1/32 scope global flannel.1
-       valid_lft forever preferred_lft forever
-598: eth0@if599: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
-    link/ether 02:42:c0:05:72:06 brd ff:ff:ff:ff:ff:ff link-netnsid 0
-    inet 192.5.114.6/24 brd 192.5.114.255 scope global eth0
-       valid_lft forever preferred_lft forever
-600: eth1@if601: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
-    link/ether 02:42:ac:19:00:28 brd ff:ff:ff:ff:ff:ff link-netnsid 1
-    inet 172.25.0.32/24 brd 172.25.0.255 scope global eth1
-       valid_lft forever preferred_lft forever
-```
+![alt text](../Images/Demo-Network-Commands-2.png)
 
 ---
 
@@ -170,6 +123,8 @@ controlplane ~ ⟶ ip address
        valid_lft forever preferred_lft forever
 ...
 ```
+
+![alt text](../Images/Demo-Network-Commands-3.png)
 
 > 💡 The `cni0` bridge interface is essential for container networking. Ensure your CNI configuration is correct for proper connectivity.
 
