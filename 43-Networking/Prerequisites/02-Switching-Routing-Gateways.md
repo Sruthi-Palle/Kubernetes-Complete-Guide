@@ -153,7 +153,7 @@ Consider a scenario with three hosts (A, B, and C) where hostA and hostB connect
 - **Host B:** 192.168.1.6 and 192.168.2.6 [have IP's at both networks]
 - **Host C:** 192.168.2.5
 
-For host A to communicate with host C, host A must direct traffic aimed at network 192.168.2.0 to host B. On host A, execute:
+For host A to communicate with host C, host A must direct traffic aimed at network 192.168.2.0 to host B(gateway to network 192.168.2.0). On host A, execute:
 
 ```bash theme={null}
 ip route add 192.168.2.0/24 via 192.168.1.6
@@ -165,11 +165,11 @@ Similarly, host C needs a route for the 192.168.1.0 network via host B (using 19
 ip route add 192.168.1.0/24 via 192.168.2.6
 ```
 
-Once these routes are established, the "network unreachable" error should no longer occur when pinging between host A and host C.
+Once these routes are established, the "network unreachable" error should no longer occur when pinging between host A and host C. But we still don't get any response back by default in Linux.
 
 ### Enabling IP Forwarding on Linux
 
-Even with the correct routing table, Linux does not forward packets between interfaces by default, as a security measure. For Example, Packets received on eth0 on hostB are not forwarded to elsewhere through eth1 . This setting is controlled by the IP forwarding parameter in `/proc/sys/net/ipv4/ip_forward`.
+Even with the correct routing table, Linux does not forward packets between interfaces by default, as a security measure[For example, if you had eth0 connected to your private network and eth1 to public network, we dont want anyone from public network to easily send messages to private network, unless you explicitly you allow that]. For Example, Packets received on eth0 on hostB are not forwarded to elsewhere through eth1 . This setting is controlled by the IP forwarding parameter in `/proc/sys/net/ipv4/ip_forward`.
 
 To check the IP forwarding status, run:
 
