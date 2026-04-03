@@ -72,7 +72,7 @@ ip addr add 10.244.3.1/24 dev v-net-0
 Each container requires additional network configuration. A script that runs the following commands can automate the process for every new container:
 
 1. Create a virtual Ethernet pair (veth pair) connecting the container’s network namespace with the node’s bridge.
-2. Configure an IP address within the container and set up a default gateway.
+2. Configure an IP address within the container and set up a default gateway[nodes bridge interface].
 
 For example, assume the free IP address 10.244.1.2 is allocated to a container:
 
