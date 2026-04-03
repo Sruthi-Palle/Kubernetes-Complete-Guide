@@ -8,7 +8,8 @@ When you run a container, Docker provides several networking modes to tailor con
 
 ### None Network
 
-With the "none" network mode, the container is not attached to any network. As a result, it cannot communicate with external systems, nor can external systems reach the container. For example:
+- With the "none" network mode, the container is not attached to any network.
+- As a result, it cannot communicate with external systems, nor can external systems reach the container.
 
 ```bash theme={null}
 docker run --network none nginx
@@ -18,7 +19,9 @@ docker run --network none nginx
 
 ### Host Network
 
-In the host network mode, the container shares its host's network stack. This means there is no network isolation between the host and the container. For instance, if a web application inside the container listens on port 80, that application immediately becomes accessible on port 80 of the host. However, running a second container that also attempts to bind to the same port will result in a failure because two processes cannot share the same port on the host. For example:
+- In the host network mode, the container shares its host's network stack. This means there is no network isolation between the host and the container.
+- For instance, if a web application inside the container listens on port 80, that application immediately becomes accessible on port 80 of the host.
+- However, running a second container that also attempts to bind to the same port will result in a failure because two processes cannot share the same port on the host.
 
 ```bash theme={null}
 docker run --network host nginx
@@ -26,69 +29,77 @@ docker run --network host nginx
 
 ### Bridge Network
 
-The default Docker networking mode is the bridge network. When Docker is installed, it automatically creates an internal private network called "bridge" (visible as "docker0" on the host) with a default subnet (usually 172.17.0.0/16). Each container connected to this network receives a unique IP address from this subnet. For example, running two containers:
+- The default Docker networking mode is the bridge network.
+- When Docker is installed, it automatically creates an internal private network called "bridge" (visible as "docker0" on the host) with a default subnet (usually 172.17.0.0/16).
+- Each container connected to this network receives a unique IP address from this subnet.
+- Internally, Docker creates the "docker0" interface on the host, serving as the bridge between host and containers.
+- Although `the docker network ls` command output names it "bridge," it is implemented as the "docker0" interface on the "docker host".
 
-```bash theme={null}
-docker run nginx
-docker run nginx
-```
+> 💡Bridge network is like an interface to the host, but a switch to the namespaces or containers within the host
 
-These containers communicate with each other over the internal bridge network. To inspect the list of available networks, use:
+- For example, running two containers:
 
-```bash theme={null}
-docker network ls
-```
+  ```bash theme={null}
+  docker run nginx
+  docker run nginx
+  ```
 
-An example output might look like:
+  These containers communicate with each other over the internal bridge network. To inspect the list of available networks, use:
 
-```text theme={null}
-NETWORK ID          NAME                DRIVER              SCOPE
-2b6008726112        bridge              bridge              local
-0beb4870b093        host                host                local
-99035e02694f        none                null                local
-```
+  ```bash theme={null}
+  docker network ls
+  ```
 
-Internally, Docker creates the "docker0" interface on the host, serving as the bridge between host and containers. Although `the docker network ls` command output names it "bridge," it is implemented as the "docker0" interface on the "docker host". Verify this by running:
+  An example output might look like:
 
-```bash theme={null}
-ip link show docker0
-```
+  ```text theme={null}
+  NETWORK ID          NAME                DRIVER              SCOPE
+  2b6008726112        bridge              bridge              local
+  0beb4870b093        host                host                local
+  99035e02694f        none                null                local
+  ```
 
-> Bridge network is like an interface to the host, but a switch to the namespaces or containers within the host.
+- By default, the "docker0" interface is assigned the IP address 172.17.0.1. You can verify this in the output of below command:
 
-By default, the "docker0" interface is assigned the IP address 172.17.0.1. You can verify this in the output of below command:
+  ```bash theme={null}
+      ip addr
+  ```
 
-```bash theme={null}
-ip addr
-```
+- When a container is launched, Docker creates a new network namespace for it (similar to those discussed in earlier lessons). To list the available network namespaces (a minor hack may be required to display Docker-created namespaces):
 
-When a container is launched, Docker creates a new network namespace for it (similar to those discussed in earlier lessons). To list the available network namespaces (a minor hack may be required to display Docker-created namespaces):
+  ```bash theme={null}
+  ip netns list
+  ```
 
-```bash theme={null}
-ip netns list
-```
+- Typically, the namespace will have a name starting with an identifier like `b3165...`. To view the network namespace details associated with a container, inspect the container details with:
 
-Typically, the namespace will have a name starting with an identifier like `b3165...`. To view the network namespace details associated with a container, inspect the container details with:
+  ```bash theme={null}
+  docker inspect <container_id>
+  ```
 
-```bash theme={null}
-docker inspect <container_id>
-```
+  A snippet of the output under "NetworkSettings" might appear as follows:
 
-A snippet of the output under "NetworkSettings" might appear as follows:
-
-```json theme={null}
-"NetworkSettings": {
-    "Bridge": "",
-    "SandboxID": "b3165c10a92b50edc4c8aa5f37273e180907ded31",
-    "SandboxKey": "/var/run/docker/netns/b3165c10a92b"
-}
-```
+  ```json theme={null}
+  "NetworkSettings": {
+   "Bridge": "",
+   "SandboxID": "b3165c10a92b50edc4c8aa5f37273e180907ded31",
+   "SandboxKey": "/var/run/docker/netns/b3165c10a92b"
+  }
+  ```
 
 ## Container/Network Namespace Attachment to the Bridge Network
 
-![alt text](../../Images/Docker-Networking-1.png)
+- Docker attaches each container to the bridge network by creating a pair of virtual interfaces—essentially a virtual cable with an interface at each end.
+- One interface is connected to the host's "docker0" bridge, and the other interface is placed inside the container's network namespace.
 
-Docker attaches each container to the bridge network by creating a pair of virtual interfaces—essentially a virtual cable with an interface at each end. One interface is connected to the host's "docker0" bridge, and the other interface is placed inside the container's network namespace.
+> 💡 Each time a new container is created, Docker follows these sequential steps:
+>
+> 1. Creates a new network namespace.
+> 2. Establishes a pair of virtual interfaces.
+> 3. Attaches one end to the container’s namespace and the other to the "docker0" bridge.
+> 4. Assigns an IP address to the container's interface.
+
+![alt text](../../Images/Docker-Networking.png)
 
 Inspect the interfaces on the Docker host using:
 
@@ -105,44 +116,36 @@ You might see an output similar to:
     link/ether 9e:71:37:83:9f:50 brd ff:ff:ff:ff:ff:ff link-netnsid 1
 ```
 
-To inspect the network namespace of a container (for example, with namespace ID `b3165c10a92b`), run:
+- To inspect the network namespace of a container (for example, with namespace ID `b3165c10a92b`), run:
 
-```bash theme={null}
-ip -n b3165c10a92b link show
-```
+  ```bash theme={null}
+  ip -n b3165c10a92b link show
+  ```
 
-The output might be similar to:
+  The output might be similar to:
 
-```text theme={null}
-7: eth0@if8: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default
-    link/ether 02:42:ac:11:00:03 brd ff:ff:ff:ff:ff:ff link-netnsid 0
-```
+  ```text theme={null}
+  7: eth0@if8: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default
+   link/ether 02:42:ac:11:00:03 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+  ```
 
-To view the IP address assigned to the container’s network interface:
+- To view the IP address assigned to the container’s network interface:
 
-```bash theme={null}
-ip -n b3165c10a92b addr show eth0
-```
+  ```bash theme={null}
+  ip -n b3165c10a92b addr show eth0
+  ```
 
-This may display:
+  This may display:
 
-```text theme={null}
-7: eth0@if8: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
-    link/ether 02:42:ac:11:00:03 brd ff:ff:ff:ff:ff:ff link-netnsid 0
-    inet 172.17.0.3/16 brd 172.17.255.255 scope global eth0
-       valid_lft forever preferred_lft forever
-```
+  ```text theme={null}
+  7: eth0@if8: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+   link/ether 02:42:ac:11:00:03 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+   inet 172.17.0.3/16 brd 172.17.255.255 scope global eth0
+      valid_lft forever preferred_lft forever
+  ```
 
-Each time a new container is created, Docker follows these sequential steps:
-
-1. Creates a new network namespace.
-2. Establishes a pair of virtual interfaces.
-3. Attaches one end to the container’s namespace and the other to the "docker0" bridge.
-4. Assigns an IP address to the container's interface.
-
-The virtual interface pairs are numbered consistently, with odd and even numbers forming a pair (e.g., 7 and 8, 9 and 10).
-
-![alt text](../../Images/Docker-Networking.png)
+- The virtual interface pairs are numbered consistently, with odd and even numbers forming a pair (e.g., 7 and 8, 9 and 10).
+  ![alt text](../../Images/Docker-Networking-1.png)
 
 ## Port Mapping
 
@@ -215,5 +218,9 @@ Welcome to nginx!
 ## Conclusion
 
 In summary, Docker networking offers multiple modes—none, host, and bridge—to manage connectivity for containers. The default bridge network uses a virtual switch (docker0) to connect containers via dedicated network namespaces, while port mapping enables external access by forwarding traffic from a designated host port to the container's port.
+
+## Docker Networking Reference table:
+
+<table style="min-width: 100px;"><colgroup><col style="min-width: 25px;"><col style="min-width: 25px;"><col style="min-width: 25px;"><col style="min-width: 25px;"></colgroup><tbody><tr><td colspan="1" rowspan="1"><p><strong>Feature</strong></p></td><td colspan="1" rowspan="1"><p><strong>None</strong></p></td><td colspan="1" rowspan="1"><p><strong>Host</strong></p></td><td colspan="1" rowspan="1"><p><strong>Bridge (Default)</strong></p></td></tr><tr><td colspan="1" rowspan="1"><p><strong>Isolation</strong></p></td><td colspan="1" rowspan="1"><p>Total isolation (No network stack).</p></td><td colspan="1" rowspan="1"><p>No isolation (Shares host stack).</p></td><td colspan="1" rowspan="1"><p>Private internal network isolation.</p></td></tr><tr><td colspan="1" rowspan="1"><p><strong>IP Address</strong></p></td><td colspan="1" rowspan="1"><p>None (Loopback only).</p></td><td colspan="1" rowspan="1"><p>Shared with Host (<code>192.168.1.10</code>).</p></td><td colspan="1" rowspan="1"><p>Internal Private IP (<code>172.17.0.x</code>).</p></td></tr><tr><td colspan="1" rowspan="1"><p><strong>Port Access</strong></p></td><td colspan="1" rowspan="1"><p>Inaccessible.</p></td><td colspan="1" rowspan="1"><p>Direct (Host port = Container port).</p></td><td colspan="1" rowspan="1"><p>Requires Port Mapping (<code>-p</code>).</p></td></tr><tr><td colspan="1" rowspan="1"><p><strong>Use Case</strong></p></td><td colspan="1" rowspan="1"><p>High-security/Network-less tasks.</p></td><td colspan="1" rowspan="1"><p>Performance/Low-latency apps.</p></td><td colspan="1" rowspan="1"><p>Standard microservices/Web apps.</p></td></tr><tr><td colspan="1" rowspan="1"><p><strong>Interface</strong></p></td><td colspan="1" rowspan="1"><p>N/A</p></td><td colspan="1" rowspan="1"><p>Host's physical interface (<code>eth0</code>).</p></td><td colspan="1" rowspan="1"><p>Virtual bridge (<code>docker0</code>).</p></td></tr><tr><td colspan="1" rowspan="1"><p><strong>Implementation</strong></p></td><td colspan="1" rowspan="1"><p><code>--network none</code></p></td><td colspan="1" rowspan="1"><p><code>--network host</code></p></td><td colspan="1" rowspan="1"><p>Default or <code>--network bridge</code>.</p></td></tr></tbody></table>
 
 > 💡 For a deeper dive into container networking, consider exploring the [Kubernetes Networking Basics](https://kubernetes.io/docs/concepts/cluster-administration/networking/) and other resources in the [Docker Documentation](https://docs.docker.com/network/).
