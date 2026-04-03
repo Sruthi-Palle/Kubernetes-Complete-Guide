@@ -48,15 +48,17 @@ root      3816  1.0  0.0   4528   828 ?        Ss   06:06   0:00 nginx
 
 On the networking front, the host maintains its own interfaces, ARP tables, and routing configurations—all of which remain hidden from containers. When a container is created, a dedicated network namespace gives it its own virtual interfaces, routing table, and ARP cache.
 
-### ** Management Commands**
+### Management Commands
 
 The `ip netns` command suite is the primary tool for managing network namespaces on a Linux host.
 
-| **Action**                 | **Command**                                                  |
-| -------------------------- | ------------------------------------------------------------ |
-| **Create a Namespace**     | `ip netns add [namespace_name]`                              |
-| **List Namespaces**        | `ip netns`                                                   |
-| **Execute Command Inside** | `ip netns exec [name] [command]` OR `ip -n [name] [command]` |
+| **Action**                           | **Command**                                                  |
+| ------------------------------------ | ------------------------------------------------------------ |
+| **Create a Namespace**               | `ip netns add [namespace_name]`                              |
+| **List Namespaces**                  | `ip netns`                                                   |
+| **Execute Command Inside Namespace** | `ip netns exec [name] [command]` OR `ip -n [name] [command]` |
+
+![alt text](../../Images/Network-Namespaces-8.png)
 
 ### Scope of Isolation
 
@@ -65,6 +67,8 @@ Within a new namespace, the following components in namespaces are entirely inde
 - **Interfaces:** In namespace, Only a loopback interface is initially present; physical host interfaces (e.g., eth0) are invisible.
 - **ARP Tables:** Initially empty, as the namespace has no neighbours.
 - **Routing Tables:** Initially empty, providing no path to external networks.
+
+![alt text](../../Images/Network-Namespaces-1.png)
 
 For example, running the following command on your host:
 
@@ -86,9 +90,15 @@ ip -n red link
 
 Inside the namespace, you typically see only a loopback interface, ensuring that host-specific interfaces (e.g., `eth0`) remain hidden. This isolation applies similarly to ARP and routing tables.
 
+![alt text](../../Images/Network-Namespaces-2.png)
+
+![alt text](../../Images/Network-Namespaces-3.png)
+
 ## Connecting Network Namespaces
 
 By default, a network namespace has no connectivity because it lacks defined interfaces or routes. To connect namespaces, you create virtual Ethernet (veth) pairs that act like cables between two entities.
+
+![alt text](../../Images/Network-Namespaces-4.png)
 
 For example, to connect two namespaces—named "red" and "blue"—
 
@@ -139,6 +149,8 @@ Similarly, checking the ARP table in the blue namespace should display an entry 
 ## Creating a Virtual Switch for Multiple Namespaces
 
 When working with more than two namespaces, linking every pair using veth pairs is impractical. To create a Network, you need switch. To create virtual network , you need virtual switch. Establish a virtual network switch (or bridge network) on the host to interconnect all namespaces. Linux offers tools such as the native Linux bridge or Open vSwitch.
+
+![alt text](../../Images/Network-Namespaces-5.png)
 
 In this example, a Linux bridge is created:
 
@@ -191,6 +203,8 @@ ip -n blue link set veth-blue up
 
 Host is on one network and the namespaces are on another network.To allow the host to communicate with the namespaces, assign an IP from the same subnet to the bridge interface:
 
+![alt text](../../Images/Network-Namespaces-6.png)
+
 ```bash theme={null}
 ip addr add 192.168.15.5/24 dev v-net-0
 ```
@@ -211,10 +225,14 @@ All traffic within this network remains private to the host, ensuring that names
 
 Namespaces cannot naturally reach the LAN or external hosts (e.g., 192.168.1.3) because they lack a route to those networks.
 
+![alt text](../../Images/Network-Namespaces-7.png)
+
 - **The Gateway:** The host acts as the gateway because it has interfaces on both the private namespace network (192.168.15.0)[v-net-0] and the external LAN (192.168.1.0)[eth0].
 - **Configuration:** A route must be added to the namespace's routing table identifying the host's bridge IP as the gateway for external traffic.
 
-  For instance, pinging an external host (192.168.1.3) from the blue namespace would initially result in a "Network is unreachable" error:
+![alt text](../../Images/Network-Namespaces.png)
+
+For instance, pinging an external host (192.168.1.3) from the blue namespace would initially result in a "Network is unreachable" error:
 
 ```bash theme={null}
 ip netns exec blue ping 192.168.1.3
@@ -245,8 +263,6 @@ After this route is added, the blue namespace can reach external networks. Howev
 
 To provide namespaces with Internet access (such as pinging 8.8.8.8), add a default route in the namespace pointing to the host; the host must then perform NAT to forward the traffic correctly.
 
-![alt text](../../Images/Network-Namespaces.png)
-
 ## Enabling Inbound Access
 
 Thus far, namespaces are isolated on an internal network and are not directly accessible from external hosts. For instance, if the blue namespace runs a web application on port 80, external users cannot access it simply by targeting its private IP.
@@ -259,4 +275,40 @@ There are two common solutions:
 
 > 💡 The port forwarding method is often preferred, as it eliminates the need to reconfigure external routing.
 
+# Summary
+
+## Network Namespace
+
+Network Namespace separates container from host. It has independent interfaces, ARP tables and Routing table.
+
+## Establishing Connectivity
+
+By default namespaces has no connectivity[no defined interfaces, routes]. Connectivity must be manually "wired" using **Virtual Ethernet (veth) pairs**.
+
+### Point-to-Point Connection
+
+1. Create `veth` pair that acts like a virtual patch cable.
+2. You place one end in Namespace A and the other in Namespace B.
+3. Then assign IP addresses to enable direct communication.
+
+### The Virtual Switch (Bridge)
+
+Linking every namespace with individual cables is inefficient. Instead, a **Linux Bridge** (`v-net-0`) is created on the host to act as a virtual switch.
+
+1.  **Creation:** The bridge is initialized on the host.
+2.  **Connection:** Each namespace is connected to the bridge via a `veth` pair.
+3.  **Assign IP to Namespace:** Assign IP address to each namespace interface
+4.  **Host Access to Namespace:** By giving the bridge itself a namespace subnet IP address , the host can communicate with all connected namespaces.
+
+### External Access and Routing
+
+Even with a bridge, namespaces are stuck in a private internal network. Reaching the outside world requires two steps:
+
+- **Outgoing Traffic (SNAT):** To reach the Internet, the namespace must have a **Default Gateway** (the host’s bridge IP). The host then uses **NAT (Network Address Translation)** to mask the namespace's private IP with its own public/LAN IP.
+- **Incoming Traffic (Port Forwarding):** External users cannot "see" private namespace IPs. To grant access (e.g., to a web server), the host uses `iptables` to map a specific host port (like 8080) to a namespace port (like 80).
+
 This concludes our guide on network namespaces. By following these steps, you can effectively isolate, connect, and manage network namespaces for containerized environments. Thank you for reading!
+
+# Summary Table
+
+<table style="min-width: 75px;"><colgroup><col style="min-width: 25px;"><col style="min-width: 25px;"><col style="min-width: 25px;"></colgroup><tbody><tr><td colspan="1" rowspan="1"><p><strong>Category</strong></p></td><td colspan="1" rowspan="1"><p><strong>Key Concept</strong></p></td><td colspan="1" rowspan="1"><p><strong>Description</strong></p></td></tr><tr><td colspan="1" rowspan="1"><p><strong>Connectivity</strong></p></td><td colspan="1" rowspan="1"><p><strong>veth Pairs</strong></p></td><td colspan="1" rowspan="1"><p>Virtual cables used to connect two namespaces or a namespace to a virtual switch.Then assign IP addresses to enable direct communication.</p></td></tr><tr><td colspan="1" rowspan="1"><p><strong>Scaling</strong></p></td><td colspan="1" rowspan="1"><p><strong>Linux Bridge</strong></p></td><td colspan="1" rowspan="1"><p>A virtual switch (<code>v-net-0</code>) that allows multiple namespaces to communicate on a single private network.</p></td></tr><tr><td colspan="1" rowspan="1"><p><strong>Gateway</strong></p></td><td colspan="1" rowspan="1"><p><strong>The Host</strong></p></td><td colspan="1" rowspan="1"><p>The Host acts as the "door" to the outside world, routing traffic between private namespace IPs and the physical LAN.</p></td></tr><tr><td colspan="1" rowspan="1"><p><strong>Outbound</strong></p></td><td colspan="1" rowspan="1"><p><strong>NAT / Masquerading</strong></p></td><td colspan="1" rowspan="1"><p>Allows namespaces to reach the internet by replacing their private IP with the Host's IP via <code>iptables</code>.</p></td></tr><tr><td colspan="1" rowspan="1"><p><strong>Inbound</strong></p></td><td colspan="1" rowspan="1"><p><strong>Port Forwarding</strong></p></td><td colspan="1" rowspan="1"><p>Maps a Host port to a Namespace port so external users can access applications (e.g., a web server) inside the container.</p></td></tr></tbody></table>
