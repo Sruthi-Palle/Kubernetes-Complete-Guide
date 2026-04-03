@@ -10,7 +10,7 @@
 
 ![alt text](../../Images/Switching-Routing-Gateways-2.png)
 
-Consider two systems—labeled A and B—that could be laptops, desktops, or virtual machines. Switch creates a network containing the two systems. To enable communication between them, each system must be connected to a switch with its respective network interface (either physical or virtual). To list available interfaces on a Linux host, execute:
+Consider two systems—labeled A and B—that could be laptops, desktops, or virtual machines. To enable communication between them, each system must be connected to a switch with its respective network interface (either physical or virtual).Switch creates a network containing the two systems. To list available interfaces on a Linux host, execute:
 
 ```bash theme={null}
 ip link
@@ -121,7 +121,11 @@ default         192.168.2.1     0.0.0.0         UG    0      0        0 eth0
 
 > 💡 The "default" or "0.0.0.0" entry indicates that any destination not explicitly listed in the routing table will be directed through the specified gateway.
 
-For scenarios involving multiple routers—such as one handling internet traffic and another managing internal networks—ensure each network has its specific routing entry along with a default route for all other traffic. For example, to route traffic to network 192.168.1.0 via an alternative gateway (192.168.2.2), use:
+For scenarios involving multiple routers—such as one handling internet traffic and another managing internal networks—ensure each network has its specific routing entry along with a default route for all other traffic.
+
+![alt text](../../Images/Switching-Routing-Gateways-4.png)
+
+For example, to route traffic to network 192.168.1.0 via an alternative gateway (192.168.2.2), use:
 
 ```bash theme={null}
 ip route add 192.168.1.0/24 via 192.168.2.2
