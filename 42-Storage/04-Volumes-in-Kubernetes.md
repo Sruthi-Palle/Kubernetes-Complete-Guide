@@ -41,6 +41,135 @@ spec:
 
 > 💡 When the pod executes the command, the random number is written to `/opt/number.out` inside the container. Since `/opt` is mounted to the host’s `/data` directory, the file persists on the host even after the pod is deleted.
 
+## emptyDir
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flagd
+  labels:
+    opentelemetry.io/name: flagd
+
+    app.kubernetes.io/version: "2.2.0"
+    app.kubernetes.io/component: flagd
+    app.kubernetes.io/name: flagd
+
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      opentelemetry.io/name: flagd
+  template:
+    metadata:
+      labels:
+        opentelemetry.io/name: flagd
+
+        app.kubernetes.io/version: "2.2.0"
+        app.kubernetes.io/component: flagd
+        app.kubernetes.io/name: flagd
+      annotations:
+        resource.opentelemetry.io/service.namespace: otel-demo
+    spec:
+      serviceAccountName: example
+      containers:
+        - name: flagd
+          image: "ghcr.io/open-feature/flagd:v0.12.9"
+          imagePullPolicy: IfNotPresent
+          command:
+            - /flagd-build
+            - start
+            - --port
+            - "8013"
+            - --ofrep-port
+            - "8016"
+            - --uri
+            - file:./etc/flagd/demo.flagd.json
+          ports:
+            - containerPort: 8013
+              name: rpc
+            - containerPort: 8016
+              name: ofrep
+          env:
+            - name: OTEL_SERVICE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.labels['app.kubernetes.io/component']
+          resources:
+            limits:
+              memory: 75Mi
+          volumeMounts:
+            - name: config-rw
+              mountPath: /etc/flagd
+        - name: flagd-ui
+          image: "ghcr.io/open-telemetry/demo:2.2.0-flagd-ui"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4000
+              name: service
+          env:
+            - name: OTEL_SERVICE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.labels['app.kubernetes.io/component']
+          resources:
+            limits:
+              memory: 250Mi
+          volumeMounts:
+            - mountPath: /app/data
+              name: config-rw
+      initContainers:
+        - command:
+            - sh
+            - -c
+            - cp /config-ro/demo.flagd.json /config-rw/demo.flagd.json && cat /config-rw/demo.flagd.json
+          image: busybox
+          name: init-config
+          volumeMounts:
+            - mountPath: /config-ro
+              name: config-ro
+            - mountPath: /config-rw
+              name: config-rw
+      volumes:
+        - name: config-rw
+          emptyDir: {}
+        - configMap:
+            name: flagd-config
+          name: config-ro
+```
+
+In Kubernetes, an `emptyDir` is a type of volume that is created when a Pod is assigned to a Node and exists as long as that Pod is running on that node. As the name suggests, it is initially empty.
+
+While other volumes (like Persistent Volumes) are designed to keep data forever, `emptyDir` is designed for **transient, temporary data**.
+
+### 1\. How it Works
+
+When a Pod starts, Kubernetes creates a directory on the host machine’s disk (or in RAM). All containers in that Pod can read and write to this directory.
+
+- **Shared Access:** If you have two containers in a Pod, they can both mount the same `emptyDir` and use it to pass files back and forth.
+- **Life Cycle:** The volume’s life is tied directly to the **Pod**. If the Pod is deleted or evicted from the node, the data in the `emptyDir` is deleted permanently.
+- **Survival:** If a _container_ inside the Pod crashes, the Pod stays on the node, so the `emptyDir` data **survives** a container restart.
+
+### 2\. Why is it used in your YAML?
+
+In your specific `opentelemetry-demo` code, the `emptyDir` serves as a **bridge**.
+
+Because your configuration file is stored in a `ConfigMap` (which is Read-Only), the application cannot modify it. The developers used `emptyDir` to solve this:
+
+1.  **The Bridge:** The `init-container` copies the config file from the "Locked" ConfigMap into the "Open" `emptyDir`.
+2.  **The Result:** When the main `flagd` container starts, it looks at the `emptyDir`. Now it has a version of the config file that it is allowed to write to or modify.
+
+### Does this mean you lose changes?
+
+**Yes.** If `flagd` makes a change to that file while it's running, and then the Pod crashes, that specific change **is lost**. The Pod will restart with the original version from the ConfigMap.
+
+In the OpenTelemetry Demo, this is acceptable because the flags are usually managed via the ConfigMap (or the UI sends them elsewhere), and the `emptyDir` is just providing a flexible execution environment.
+
+If you were building a database where every change _must_ be saved, you would use a **PersistentVolume (PV)** instead of an `emptyDir`.
+
 ## Volume Storage Options
 
 In the above example, we utilized a hostPath volume, which is suitable for a single-node cluster. However, this approach is not ideal for multi-node clusters where each node's `/data` directory may differ. For such environments, Kubernetes supports several external and replicated storage solutions. Some popular storage options include:
